@@ -279,9 +279,9 @@ describe("Source wiring", () => {
     expect(httpCalls().filter((call) => call.url.endsWith("/authors/sam-sacks.turbo_stream"))).toHaveLength(1);
   });
 
-  test("search surfaces collections as channels and follows the Turbo continuation", () => {
+  test("search surfaces collections as channels and follows the catalog/search continuation", () => {
     const runtime = sourceRuntime();
-    const nextUrl = "https://api.uscreencdn.com/api/contents/search?search=comic&page=2";
+    const nextUrl = "https://means.tv/catalog/search?format=turbo_stream&page=2&search=comic";
     const page1 = `
       <article data-card="video_11" data-author-title-0="Sam" data-author-permalink-0="sam-sacks">
         <a class="card-title" href="/programs/first-video" title="First Video">First Video</a>
@@ -291,7 +291,8 @@ describe("Source wiring", () => {
         <a class="card-title" href="/programs/laughter-against-the-machine" title="Laughter Against The Machine">Laughter Against The Machine</a>
         <img src="/images/programs/22.jpg" />
       </article>
-      <turbo-frame src="/api/contents/search?search=comic&page=2"></turbo-frame>`;
+      <turbo-frame id="catalog_watched_videos" src="/catalog/watched_videos?preview=false"></turbo-frame>
+      <turbo-frame id="catalog_pagination" src="/catalog/search?format=turbo_stream&page=2&search=comic"></turbo-frame>`;
     const page2 = `
       <article data-card="video_33" data-author-title-0="Sam" data-author-permalink-0="sam-sacks">
         <a class="card-title" href="/programs/second-video" title="Second Video">Second Video</a>

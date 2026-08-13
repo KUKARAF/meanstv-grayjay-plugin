@@ -13,7 +13,7 @@ import {
 } from "./constants";
 import { callJson, callUrl, postJson, tryCallUrls } from "./http";
 import { parseAuthorProfile } from "./parsers/author";
-import { parseContentCardPage } from "./parsers/cards";
+import { parseContentCardPage, parseSearchPage } from "./parsers/cards";
 import { parseCatalog } from "./parsers/catalog";
 import { parseCommentPage } from "./parsers/comments";
 import { isPreviewStreamHtml, parseContentJson, parseStreamDetails, type StreamDetails } from "./parsers/content";
@@ -130,8 +130,12 @@ function isSafeAuthorContinuation(url: string, slug: string): boolean {
 }
 
 function isSafeContentSearchContinuation(url: string): boolean {
-  return url.startsWith(`${DOMAIN.API_CDN}/api/contents/search`);
+  return url.startsWith(`${DOMAIN.MAIN}/catalog/search`);
 }
+
+const SEARCH_TURBO_HEADERS = {
+  Accept: "text/vnd.turbo-stream.html, text/html, */*",
+} as const;
 
 function isSafeCommentContinuation(
   url: string,
@@ -235,7 +239,7 @@ export function getAuthorCards(slug: string, query = "", nextUrl: string | null 
 
 /** Video-only search used by playlist import to resolve items by title. */
 export function getContentSearch(query: string): CatalogItem[] {
-  const page = parseContentCardPage(callUrl(urlContentSearch(query)));
+  const page = parseSearchPage(callUrl(urlContentSearch(query), true, SEARCH_TURBO_HEADERS));
   attachAuthorThumbnails(page.items);
   return page.items.filter((item) => item.contentType === "video");
 }
@@ -249,7 +253,7 @@ export function getContentSearchPage(query: string, nextUrl: string | null = nul
   if (nextUrl && !isSafeContentSearchContinuation(nextUrl)) {
     throw new UnavailableException("MeansTV returned an invalid search pagination URL.");
   }
-  const page = parseContentCardPage(callUrl(nextUrl ?? urlContentSearch(query)));
+  const page = parseSearchPage(callUrl(nextUrl ?? urlContentSearch(query), true, SEARCH_TURBO_HEADERS));
   attachAuthorThumbnails(page.items);
   return page;
 }

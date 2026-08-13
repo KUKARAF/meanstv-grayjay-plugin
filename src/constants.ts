@@ -45,7 +45,7 @@ export function urlContents(slug: string): string {
 }
 
 export function urlContentSearch(query: string): string {
-  return `${URLS.CONTENTS}/search?search=${encodeURIComponent(query)}`;
+  return `${DOMAIN.MAIN}/catalog/search?format=turbo_stream&search=${encodeURIComponent(query)}`;
 }
 
 export function urlProgram(slug: string): string {

@@ -78,3 +78,26 @@ export function parseContentCardPage(html: string, resolveAuthorThumbnail: Autho
     };
   });
 }
+
+/**
+ * Parses `means.tv/catalog/search` results. The response also carries unrelated
+ * Turbo frames (e.g. `catalog_watched_videos`), so the next-page control is
+ * identified specifically by its `/catalog/search` continuation `src` and
+ * resolved against the main origin rather than the API CDN.
+ */
+export function parseSearchPage(html: string): ContentCardPage {
+  return withDocument(html, (root) => {
+    let nextSrc = "";
+    for (const frame of root.querySelectorAll("turbo-frame[src]")) {
+      const src = frame.getAttribute("src") ?? "";
+      if (src.includes("/catalog/search")) {
+        nextSrc = src;
+        break;
+      }
+    }
+    return {
+      items: parseCatalogCards(root),
+      nextUrl: nextSrc ? absoluteMainUrl(nextSrc) : null,
+    };
+  });
+}
