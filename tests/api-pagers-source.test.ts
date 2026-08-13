@@ -103,6 +103,7 @@ type SourceRuntime = {
   readonly setSettings: (settings: unknown) => void;
   readonly enable: (config: SourceConfig, settings: unknown, savedState?: string | null) => void;
   readonly saveState: () => string;
+  readonly search: (query: string, type: unknown, order: unknown, filters: unknown) => unknown;
   readonly getChannel: (url: string) => unknown;
   readonly getChannelContents: (url: string, type: unknown, order: unknown, filters: unknown) => unknown;
   readonly searchChannelContents: (url: string, query: string, type: unknown, order: unknown, filters: unknown) => unknown;
@@ -276,6 +277,39 @@ describe("Source wiring", () => {
     const recommendations = requireRecord(runtime.getContentRecommendations("https://means.tv/programs/mmn-daily_031326"));
     expect(videoNames(recommendations.results)).toEqual(["MMN Daily"]);
     expect(httpCalls().filter((call) => call.url.endsWith("/authors/sam-sacks.turbo_stream"))).toHaveLength(1);
+  });
+
+  test("search surfaces collections as channels and follows the Turbo continuation", () => {
+    const runtime = sourceRuntime();
+    const nextUrl = "https://api.uscreencdn.com/api/contents/search?search=comic&page=2";
+    const page1 = `
+      <article data-card="video_11" data-author-title-0="Sam" data-author-permalink-0="sam-sacks">
+        <a class="card-title" href="/programs/first-video" title="First Video">First Video</a>
+        <img src="/images/programs/11.jpg" /><span class="badge-item">2:00</span>
+      </article>
+      <article data-card="collection_22" data-author-permalink-0="sam-sacks">
+        <a class="card-title" href="/programs/laughter-against-the-machine" title="Laughter Against The Machine">Laughter Against The Machine</a>
+        <img src="/images/programs/22.jpg" />
+      </article>
+      <turbo-frame src="/api/contents/search?search=comic&page=2"></turbo-frame>`;
+    const page2 = `
+      <article data-card="video_33" data-author-title-0="Sam" data-author-permalink-0="sam-sacks">
+        <a class="card-title" href="/programs/second-video" title="Second Video">Second Video</a>
+        <img src="/images/programs/33.jpg" /><span class="badge-item">3:00</span>
+      </article>`;
+    setAuthorProfileRoute("sam-sacks");
+    setHttpRoute(urlContentSearch("comic"), page1);
+    setHttpRoute(nextUrl, page2);
+
+    const pager = requireRecord(runtime.search("comic", null, null, null));
+    const firstPage = requireArray(pager.results).map((entry) => requireRecord(entry));
+    expect(firstPage.map((entry) => entry.name)).toEqual(["First Video", "Laughter Against The Machine"]);
+    expect(firstPage.map((entry) => entry.plugin_type)).toEqual(["PlatformVideo", "PlatformChannel"]);
+    expect(pager.hasMore).toBe(true);
+
+    (pager.nextPage as () => void)();
+    expect(videoNames(pager.results)).toEqual(["Second Video"]);
+    expect(pager.hasMore).toBe(false);
   });
 
   test("constructs read-only comments and validated reply pagers", () => {

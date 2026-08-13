@@ -11,11 +11,11 @@ MeansTV is a subscription streaming service backed by Uscreen. This plugin lets 
 - [x] Channel/creator pages with video listings
 - [x] Video playback with HLS streaming
 - [x] Comments
-- [x] Video search (general and per-channel) — basic, with known gaps:
-  - [ ] Series/collections in results — `getContentSearch` filters cards to `contentType === "video"` (`src/api.ts`), so shows/series (e.g. a `collection` card like "Laughter Against The Machine") are dropped and can never be found by search. Un-filter and map `collection` cards to a `PlatformChannel` (`/programs/<slug>` → the author channel) or `PlatformPlaylist`.
-  - [ ] Paginated global search — `src["search"]` returns `new ContentPager(items, false)` and discards the `nextUrl` the parser already extracts, so only the first page of results is ever returned. Add a search pager that follows `turbo-frame[src]`, mirroring the per-channel author-search pager.
-  - [ ] Search filters/order — capabilities advertise only `Type.Feed.Videos` / `Chronological`; no category or type filtering.
-  - [ ] Test coverage — no dedicated search fixture (`tests/fixtures/`) exercising collection results or pagination.
+- [x] Video search (general and per-channel):
+  - [x] Series/collections in results — `getContentSearchPage` keeps `collection` cards, and `searchResultFromCatalogItem` maps them to a `PlatformChannel`, so shows (e.g. "Laughter Against The Machine") surface in search instead of being dropped.
+  - [x] Paginated global search — `SearchPager` follows the `turbo-frame[src]` continuation, mirroring the per-channel author-search pager, so results aren't truncated to page one.
+  - [x] Test coverage — `tests/api-pagers-source.test.ts` exercises mixed video/collection results and pagination.
+  - [ ] Search filters/order — capabilities advertise only `Type.Feed.Videos` / `Chronological`; no category or type filtering yet.
 - [ ] Nested comments
 - [ ] User playlists
 - [ ] Playback activity sync (opt-in)

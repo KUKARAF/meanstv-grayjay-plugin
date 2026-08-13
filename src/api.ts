@@ -129,6 +129,10 @@ function isSafeAuthorContinuation(url: string, slug: string): boolean {
   return url.startsWith(`${DOMAIN.API_CDN}/authors/${encodeURIComponent(slug)}/search?`);
 }
 
+function isSafeContentSearchContinuation(url: string): boolean {
+  return url.startsWith(`${DOMAIN.API_CDN}/api/contents/search`);
+}
+
 function isSafeCommentContinuation(
   url: string,
   path: string,
@@ -229,11 +233,25 @@ export function getAuthorCards(slug: string, query = "", nextUrl: string | null 
   return page;
 }
 
-/** General search returns terminal cards; it intentionally does not advertise authors. */
+/** Video-only search used by playlist import to resolve items by title. */
 export function getContentSearch(query: string): CatalogItem[] {
   const page = parseContentCardPage(callUrl(urlContentSearch(query)));
   attachAuthorThumbnails(page.items);
   return page.items.filter((item) => item.contentType === "video");
+}
+
+/**
+ * Paginating search feed. Unlike {@link getContentSearch} it keeps every card
+ * kind (videos and collections/series) and follows the Turbo continuation, so
+ * shows surface in results and long result sets aren't truncated to page one.
+ */
+export function getContentSearchPage(query: string, nextUrl: string | null = null): ContentCardPage {
+  if (nextUrl && !isSafeContentSearchContinuation(nextUrl)) {
+    throw new UnavailableException("MeansTV returned an invalid search pagination URL.");
+  }
+  const page = parseContentCardPage(callUrl(nextUrl ?? urlContentSearch(query)));
+  attachAuthorThumbnails(page.items);
+  return page;
 }
 
 export function getRelatedVideos(slug: string): CatalogItem[] {

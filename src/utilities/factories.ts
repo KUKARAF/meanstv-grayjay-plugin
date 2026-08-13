@@ -57,6 +57,22 @@ export function videoFromCatalogItem(item: CatalogItem): PlatformVideo {
   });
 }
 
+export function channelFromCatalogItem(item: CatalogItem): PlatformChannel {
+  const authorSlug = item.authorPermalink || item.slug;
+  return new PlatformChannel({
+    id: pid(item.id),
+    name: item.title,
+    thumbnail: item.thumbnailUrl,
+    description: item.shortDescription,
+    url: urlAuthor(authorSlug),
+  });
+}
+
+/** Search results mix individual videos with series/collections (surfaced as channels). */
+export function searchResultFromCatalogItem(item: CatalogItem): PlatformVideo | PlatformChannel {
+  return item.contentType === "collection" ? channelFromCatalogItem(item) : videoFromCatalogItem(item);
+}
+
 export function videoFromContent(content: Content): PlatformVideo {
   const url = urlProgram(content.permalink);
   return new PlatformVideo({

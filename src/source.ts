@@ -5,7 +5,6 @@ import {
   getAuthor,
   getComments,
   getContent,
-  getContentSearch,
   getRelatedVideos,
   getReplies,
   getSession,
@@ -22,6 +21,7 @@ import { ChannelContentsPager } from "./pagers/ChannelContentsPager";
 import { CommentsPager } from "./pagers/CommentsPager";
 import { HomePager } from "./pagers/HomePager";
 import { PlaylistContentsPager } from "./pagers/PlaylistContentsPager";
+import { SearchPager } from "./pagers/SearchPager";
 import { MeansPlaybackTracker } from "./playback/MeansPlaybackTracker";
 import {
   channelFromAuthor,
@@ -137,7 +137,7 @@ src["search"] = function (
   void _order;
   void _filters;
   if (!query.trim()) return new ContentPager([], false);
-  return new ContentPager(getContentSearch(query).map(videoFromCatalogItem), false);
+  return new SearchPager(query);
 };
 
 src["getChannel"] = function (url: string): PlatformChannel | null {
