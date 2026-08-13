@@ -2,11 +2,11 @@
   "name": "meanstv-grayjay-plugin",
   "version": "1.0.0",
   "description": "Means TV with type help",
-  "homepage": "https://github.com/cholojuanito/meanstv-grayjay-plugin",
+  "homepage": "https://github.com/kukaraf/meanstv-grayjay-plugin",
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/cholojuanito/meanstv-grayjay-plugin.git"
+    "url": "git+https://github.com/kukaraf/meanstv-grayjay-plugin.git"
   },
   "keywords": [
     "meanstv",

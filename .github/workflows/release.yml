@@ -20,7 +20,7 @@ concurrency:
 
 env:
   BUN_VERSION: 1.3.14
-  PAGES_BASE_URL: https://cholojuanito.github.io/meanstv-grayjay-plugin
+  PAGES_BASE_URL: https://kukaraf.github.io/meanstv-grayjay-plugin
 
 jobs:
   detect-version-bump:
