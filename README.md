@@ -7,11 +7,15 @@ A [Grayjay](https://github.com/GrayjayApp) plugin for [MeansTV](https://means.tv
 MeansTV is a subscription streaming service backed by Uscreen. This plugin lets you browse and watch MeansTV content directly inside Grayjay. Your paid subscription to MeansTV is required to fully view all videos.
 
 # Features
-- [ x ] Home feed
-- [ x ] Channel/creator pages with video listings
-- [ x ] Video playback with HLS streaming
-- [ x ] Comments
-- [ ] Video search (general and per-channel)
+- [x] Home feed
+- [x] Channel/creator pages with video listings
+- [x] Video playback with HLS streaming
+- [x] Comments
+- [x] Video search (general and per-channel) — basic, with known gaps:
+  - [ ] Series/collections in results — `getContentSearch` filters cards to `contentType === "video"` (`src/api.ts`), so shows/series (e.g. a `collection` card like "Laughter Against The Machine") are dropped and can never be found by search. Un-filter and map `collection` cards to a `PlatformChannel` (`/programs/<slug>` → the author channel) or `PlatformPlaylist`.
+  - [ ] Paginated global search — `src["search"]` returns `new ContentPager(items, false)` and discards the `nextUrl` the parser already extracts, so only the first page of results is ever returned. Add a search pager that follows `turbo-frame[src]`, mirroring the per-channel author-search pager.
+  - [ ] Search filters/order — capabilities advertise only `Type.Feed.Videos` / `Chronological`; no category or type filtering.
+  - [ ] Test coverage — no dedicated search fixture (`tests/fixtures/`) exercising collection results or pagination.
 - [ ] Nested comments
 - [ ] User playlists
 - [ ] Playback activity sync (opt-in)
