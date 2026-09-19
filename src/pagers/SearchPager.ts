@@ -1,7 +1,7 @@
 import { getContentSearchPage } from "../api";
-import { searchResultFromCatalogItem } from "../utilities/factories";
+import { videoFromCatalogItem } from "../utilities/factories";
 
-/** Pages global search, following the Turbo continuation and keeping series/collections. */
+/** Pages the "Media" search tab with videos, following the Turbo continuation. */
 export class SearchPager extends ContentPager {
   private readonly query: string;
   private nextUrl: string | null;
@@ -11,7 +11,7 @@ export class SearchPager extends ContentPager {
     this.query = query;
 
     const page = getContentSearchPage(query);
-    this.results = page.items.map(searchResultFromCatalogItem);
+    this.results = page.items.filter((item) => item.contentType === "video").map(videoFromCatalogItem);
     this.nextUrl = page.nextUrl;
     this.hasMore = this.nextUrl !== null;
   }
@@ -24,7 +24,7 @@ export class SearchPager extends ContentPager {
     if (!this.nextUrl) return this;
 
     const page = getContentSearchPage(this.query, this.nextUrl);
-    this.results = page.items.map(searchResultFromCatalogItem);
+    this.results = page.items.filter((item) => item.contentType === "video").map(videoFromCatalogItem);
     this.nextUrl = page.nextUrl;
     this.hasMore = this.nextUrl !== null;
     return this;

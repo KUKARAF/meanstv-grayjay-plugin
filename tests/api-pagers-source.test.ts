@@ -104,6 +104,7 @@ type SourceRuntime = {
   readonly enable: (config: SourceConfig, settings: unknown, savedState?: string | null) => void;
   readonly saveState: () => string;
   readonly search: (query: string, type: unknown, order: unknown, filters: unknown) => unknown;
+  readonly searchChannels: (query: string) => unknown;
   readonly getChannel: (url: string) => unknown;
   readonly getChannelContents: (url: string, type: unknown, order: unknown, filters: unknown) => unknown;
   readonly searchChannelContents: (url: string, query: string, type: unknown, order: unknown, filters: unknown) => unknown;
@@ -279,37 +280,56 @@ describe("Source wiring", () => {
     expect(httpCalls().filter((call) => call.url.endsWith("/authors/sam-sacks.turbo_stream"))).toHaveLength(1);
   });
 
-  test("search surfaces collections as channels and follows the catalog/search continuation", () => {
+  const searchPage1 = `
+    <article data-card="video_11" data-author-title-0="Sam" data-author-permalink-0="sam-sacks">
+      <a class="card-title" href="/programs/first-video" title="First Video">First Video</a>
+      <img src="/images/programs/11.jpg" /><span class="badge-item">2:00</span>
+    </article>
+    <article data-card="collection_22" data-author-permalink-0="second-thought">
+      <a class="card-title" href="/programs/laughter-against-the-machine" title="Laughter Against The Machine">Laughter Against The Machine</a>
+      <img src="/images/programs/22.jpg" />
+    </article>
+    <turbo-frame id="catalog_watched_videos" src="/catalog/watched_videos?preview=false"></turbo-frame>
+    <turbo-frame id="catalog_pagination" src="/catalog/search?format=turbo_stream&page=2&search=comic"></turbo-frame>`;
+
+  test("Media search returns only videos and follows the catalog/search continuation", () => {
     const runtime = sourceRuntime();
     const nextUrl = "https://means.tv/catalog/search?format=turbo_stream&page=2&search=comic";
-    const page1 = `
-      <article data-card="video_11" data-author-title-0="Sam" data-author-permalink-0="sam-sacks">
-        <a class="card-title" href="/programs/first-video" title="First Video">First Video</a>
-        <img src="/images/programs/11.jpg" /><span class="badge-item">2:00</span>
-      </article>
-      <article data-card="collection_22" data-author-permalink-0="sam-sacks">
-        <a class="card-title" href="/programs/laughter-against-the-machine" title="Laughter Against The Machine">Laughter Against The Machine</a>
-        <img src="/images/programs/22.jpg" />
-      </article>
-      <turbo-frame id="catalog_watched_videos" src="/catalog/watched_videos?preview=false"></turbo-frame>
-      <turbo-frame id="catalog_pagination" src="/catalog/search?format=turbo_stream&page=2&search=comic"></turbo-frame>`;
     const page2 = `
       <article data-card="video_33" data-author-title-0="Sam" data-author-permalink-0="sam-sacks">
         <a class="card-title" href="/programs/second-video" title="Second Video">Second Video</a>
         <img src="/images/programs/33.jpg" /><span class="badge-item">3:00</span>
       </article>`;
     setAuthorProfileRoute("sam-sacks");
-    setHttpRoute(urlContentSearch("comic"), page1);
+    setAuthorProfileRoute("second-thought");
+    setHttpRoute(urlContentSearch("comic"), searchPage1);
     setHttpRoute(nextUrl, page2);
 
     const pager = requireRecord(runtime.search("comic", null, null, null));
     const firstPage = requireArray(pager.results).map((entry) => requireRecord(entry));
-    expect(firstPage.map((entry) => entry.name)).toEqual(["First Video", "Laughter Against The Machine"]);
-    expect(firstPage.map((entry) => entry.plugin_type)).toEqual(["PlatformVideo", "PlatformChannel"]);
+    expect(firstPage.map((entry) => entry.name)).toEqual(["First Video"]);
+    expect(firstPage.map((entry) => entry.plugin_type)).toEqual(["PlatformVideo"]);
     expect(pager.hasMore).toBe(true);
 
     (pager.nextPage as () => void)();
     expect(videoNames(pager.results)).toEqual(["Second Video"]);
+    expect(pager.hasMore).toBe(false);
+  });
+
+  test("Creators search returns collections and video authors as deduplicated channels", () => {
+    const runtime = sourceRuntime();
+    setAuthorProfileRoute("sam-sacks");
+    setAuthorProfileRoute("second-thought");
+    setHttpRoute(urlContentSearch("comic"), searchPage1);
+
+    const pager = requireRecord(runtime.searchChannels("comic"));
+    const channels = requireArray(pager.results).map((entry) => requireRecord(entry));
+    expect(channels.map((entry) => entry.plugin_type)).toEqual(["PlatformChannel", "PlatformChannel"]);
+    expect(channels.map((entry) => entry.name)).toEqual(["Sam", "Laughter Against The Machine"]);
+    expect(channels.map((entry) => entry.url)).toEqual([
+      "https://means.tv/authors/sam-sacks",
+      "https://means.tv/authors/second-thought",
+    ]);
     expect(pager.hasMore).toBe(false);
   });
 

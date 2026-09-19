@@ -5,6 +5,7 @@ import {
   getAuthor,
   getComments,
   getContent,
+  getContentSearchPage,
   getRelatedVideos,
   getReplies,
   getSession,
@@ -25,6 +26,7 @@ import { SearchPager } from "./pagers/SearchPager";
 import { MeansPlaybackTracker } from "./playback/MeansPlaybackTracker";
 import {
   channelFromAuthor,
+  channelsFromSearchItems,
   playlistDetailsFromRecord,
   videoDetailsFromContent,
   videoFromCatalogItem,
@@ -145,6 +147,19 @@ src["search"] = function (
   } catch (error) {
     log(`[MeansTV][search] failed: ${error instanceof Error ? error.message : String(error)}`);
     return new ContentPager([], false);
+  }
+};
+
+src["searchChannels"] = function (query: string): ChannelPager {
+  if (!query.trim()) return new ChannelPager([], false);
+  log(`[MeansTV][searchChannels] query="${query}"`);
+  try {
+    const channels = channelsFromSearchItems(getContentSearchPage(query).items);
+    log(`[MeansTV][searchChannels] returning ${channels.length} creators`);
+    return new ChannelPager(channels, false);
+  } catch (error) {
+    log(`[MeansTV][searchChannels] failed: ${error instanceof Error ? error.message : String(error)}`);
+    return new ChannelPager([], false);
   }
 };
 

@@ -57,20 +57,46 @@ export function videoFromCatalogItem(item: CatalogItem): PlatformVideo {
   });
 }
 
-export function channelFromCatalogItem(item: CatalogItem): PlatformChannel {
-  const authorSlug = item.authorPermalink || item.slug;
+function channelFromCollection(item: CatalogItem): PlatformChannel {
+  const slug = item.authorPermalink || item.slug;
   return new PlatformChannel({
     id: pid(item.id),
     name: item.title,
     thumbnail: item.thumbnailUrl,
     description: item.shortDescription,
-    url: urlAuthor(authorSlug),
+    url: urlAuthor(slug),
   });
 }
 
-/** Search results mix individual videos with series/collections (surfaced as channels). */
-export function searchResultFromCatalogItem(item: CatalogItem): PlatformVideo | PlatformChannel {
-  return item.contentType === "collection" ? channelFromCatalogItem(item) : videoFromCatalogItem(item);
+function channelFromCardAuthor(item: CatalogItem): PlatformChannel {
+  return new PlatformChannel({
+    id: pid(item.authorPermalink),
+    name: item.authorTitle,
+    thumbnail: item.authorThumbnailUrl || "",
+    url: urlAuthor(item.authorPermalink),
+  });
+}
+
+/**
+ * Derives the creator channels shown on Grayjay's "Creators" search tab from a
+ * page of search cards: `collection` cards are the series/shows themselves, and
+ * every other card contributes its author. Deduplicated by author/collection slug.
+ */
+export function channelsFromSearchItems(items: readonly CatalogItem[]): PlatformChannel[] {
+  const seen = new Set<string>();
+  const channels: PlatformChannel[] = [];
+  for (const item of items) {
+    if (item.contentType === "collection") {
+      const slug = item.authorPermalink || item.slug;
+      if (!slug || seen.has(slug)) continue;
+      seen.add(slug);
+      channels.push(channelFromCollection(item));
+    } else if (item.authorPermalink && item.authorTitle && !seen.has(item.authorPermalink)) {
+      seen.add(item.authorPermalink);
+      channels.push(channelFromCardAuthor(item));
+    }
+  }
+  return channels;
 }
 
 export function videoFromContent(content: Content): PlatformVideo {
