@@ -48,6 +48,20 @@ export function urlContentSearch(query: string): string {
   return `${DOMAIN.MAIN}/catalog/search?format=turbo_stream&search=${encodeURIComponent(query)}`;
 }
 
+/**
+ * Ordered global-search endpoints to try. The first is the confirmed
+ * `catalog/search` Turbo endpoint; the rest are fallbacks in case a Grayjay
+ * client or account handles it differently. Each attempt is logged.
+ */
+export function urlContentSearchCandidates(query: string): string[] {
+  const q = encodeURIComponent(query);
+  return [
+    urlContentSearch(query),
+    `${DOMAIN.MAIN}/catalog/search?search=${q}`,
+    `${DOMAIN.MAIN}/search?format=turbo_stream&search=${q}`,
+  ];
+}
+
 export function urlProgram(slug: string): string {
   return `${URLS.PROGRAMS}/${encodeURIComponent(slug)}`;
 }

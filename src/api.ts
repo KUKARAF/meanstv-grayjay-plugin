@@ -4,14 +4,14 @@ import {
   urlAuthor,
   urlAuthorSearch,
   urlComments,
-  urlContentSearch,
+  urlContentSearchCandidates,
   urlContents,
   urlPlaylist,
   urlProgramContent,
   urlProgramRelated,
   urlReplies,
 } from "./constants";
-import { callJson, callUrl, postJson, tryCallUrls } from "./http";
+import { callJson, callUrl, postJson, tryCallUrls, tryGet } from "./http";
 import { parseAuthorProfile } from "./parsers/author";
 import { parseContentCardPage, parseSearchPage } from "./parsers/cards";
 import { parseCatalog } from "./parsers/catalog";
@@ -237,11 +237,48 @@ export function getAuthorCards(slug: string, query = "", nextUrl: string | null 
   return page;
 }
 
+function summarizeKinds(items: readonly CatalogItem[]): string {
+  const counts: Record<string, number> = {};
+  for (const item of items) counts[item.contentType] = (counts[item.contentType] ?? 0) + 1;
+  return Object.entries(counts).map(([kind, count]) => `${kind}=${count}`).join(",") || "none";
+}
+
+/**
+ * Fetches a search results fragment, logging each attempt so failures are
+ * visible via `adb logcat`. When paginating (`nextUrl`) only that URL is tried;
+ * otherwise the ordered candidate endpoints are tried until one yields cards.
+ */
+function fetchSearchPage(query: string, nextUrl: string | null): ContentCardPage {
+  const candidates = nextUrl ? [nextUrl] : urlContentSearchCandidates(query);
+  let lastPage: ContentCardPage = { items: [], nextUrl: null };
+
+  for (const url of candidates) {
+    const res = tryGet(url, true, SEARCH_TURBO_HEADERS);
+    if (!res.ok) {
+      log(`[MeansTV][search] GET ${url} -> HTTP ${res.code} (not ok), skipping`);
+      continue;
+    }
+    const page = parseSearchPage(res.body);
+    log(
+      `[MeansTV][search] GET ${url} -> HTTP ${res.code}, ${res.body.length} bytes, ` +
+        `${page.items.length} cards (${summarizeKinds(page.items)}), next=${page.nextUrl ?? "none"}`,
+    );
+    if (page.items.length > 0) {
+      attachAuthorThumbnails(page.items);
+      return page;
+    }
+    lastPage = page;
+    log(`[MeansTV][search] 0 usable cards from ${url}; trying next candidate`);
+  }
+
+  if (nextUrl) return lastPage;
+  log(`[MeansTV][search] no candidate endpoint returned results for query="${query}"`);
+  return lastPage;
+}
+
 /** Video-only search used by playlist import to resolve items by title. */
 export function getContentSearch(query: string): CatalogItem[] {
-  const page = parseSearchPage(callUrl(urlContentSearch(query), true, SEARCH_TURBO_HEADERS));
-  attachAuthorThumbnails(page.items);
-  return page.items.filter((item) => item.contentType === "video");
+  return fetchSearchPage(query, null).items.filter((item) => item.contentType === "video");
 }
 
 /**
@@ -251,11 +288,10 @@ export function getContentSearch(query: string): CatalogItem[] {
  */
 export function getContentSearchPage(query: string, nextUrl: string | null = null): ContentCardPage {
   if (nextUrl && !isSafeContentSearchContinuation(nextUrl)) {
+    log(`[MeansTV][search] rejecting unsafe continuation URL: ${nextUrl}`);
     throw new UnavailableException("MeansTV returned an invalid search pagination URL.");
   }
-  const page = parseSearchPage(callUrl(nextUrl ?? urlContentSearch(query), true, SEARCH_TURBO_HEADERS));
-  attachAuthorThumbnails(page.items);
-  return page;
+  return fetchSearchPage(query, nextUrl);
 }
 
 export function getRelatedVideos(slug: string): CatalogItem[] {

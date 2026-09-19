@@ -137,7 +137,15 @@ src["search"] = function (
   void _order;
   void _filters;
   if (!query.trim()) return new ContentPager([], false);
-  return new SearchPager(query);
+  log(`[MeansTV][search] query="${query}"`);
+  try {
+    const pager = new SearchPager(query);
+    log(`[MeansTV][search] first page returned ${pager.results.length} results (hasMore=${pager.hasMore})`);
+    return pager;
+  } catch (error) {
+    log(`[MeansTV][search] failed: ${error instanceof Error ? error.message : String(error)}`);
+    return new ContentPager([], false);
+  }
 };
 
 src["getChannel"] = function (url: string): PlatformChannel | null {

@@ -62,6 +62,29 @@ function defaultHeaders(url: string): Record<string, string> {
   return headers;
 }
 
+export interface HttpResult {
+  readonly ok: boolean;
+  readonly code: number;
+  readonly body: string;
+}
+
+/**
+ * Diagnostic GET that never throws — returns the status code and body so the
+ * caller can log failures (visible via `adb logcat`) and try fallbacks.
+ */
+export function tryGet(
+  url: string,
+  useAuth = true,
+  extraHeaders: Readonly<Record<string, string>> = {},
+): HttpResult {
+  const response = http.GET(url, { ...defaultHeaders(url), ...extraHeaders }, useAuth);
+  return {
+    ok: response.isOk,
+    code: response.code,
+    body: typeof response.body === "string" ? response.body : "",
+  };
+}
+
 /** Fetches `url` with the selected Grayjay client and returns its body. */
 export function callUrl(
   url: string,
