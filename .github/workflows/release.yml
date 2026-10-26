@@ -1,4 +1,6 @@
-# Publishes a signed GrayJay plugin when the GitHub release PR is merged.
+# Publishes a signed GrayJay plugin on every push to main that touches plugin code.
+# The version is MeansTvConfig.json's, unless Pages already serves that version or newer;
+# then it is bumped to published+1 and the bump is committed back to main.
 
 name: Publish GrayJay Plugin
 
@@ -6,7 +8,11 @@ on:
   push:
     branches: [main]
     paths:
+      - src/**
+      - assets/**
       - MeansTvConfig.json
+      - package.json
+      - bun.lock
   workflow_dispatch:
 
 permissions:
@@ -23,88 +29,8 @@ env:
   PAGES_BASE_URL: https://kukaraf.github.io/meanstv-grayjay-plugin
 
 jobs:
-  detect-version-bump:
-    if: ${{ github.server_url == 'https://github.com' }}
-    runs-on: ubuntu-latest
-    outputs:
-      should_publish: ${{ steps.detect.outputs.should_publish }}
-      version: ${{ steps.detect.outputs.version }}
-      tag: ${{ steps.detect.outputs.tag }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-
-      - name: Detect version bump
-        id: detect
-        env:
-          BEFORE_SHA: ${{ github.event.before }}
-          AFTER_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-
-          read_version() {
-            local file="$1"
-            bun --eval '
-              const file = process.argv[1];
-              const config = JSON.parse(await Bun.file(file).text());
-              if (!Number.isInteger(config.version)) {
-                throw new Error(`${file} version must be an integer`);
-              }
-              console.log(config.version);
-            ' "$file"
-          }
-
-          NEW_VERSION="$(read_version MeansTvConfig.json)"
-
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            echo "Manual publish requested for version $NEW_VERSION."
-            echo "should_publish=true" >> "$GITHUB_OUTPUT"
-            echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-            echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [ -z "${BEFORE_SHA:-}" ] || [ "$BEFORE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            echo "No previous push commit was available; skipping publish."
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if ! git cat-file -e "${BEFORE_SHA}:MeansTvConfig.json" 2>/dev/null; then
-            echo "Previous commit did not contain MeansTvConfig.json; skipping publish."
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          git show "${BEFORE_SHA}:MeansTvConfig.json" > /tmp/old-MeansTvConfig.json
-          OLD_VERSION="$(read_version /tmp/old-MeansTvConfig.json)"
-
-          if [ "$NEW_VERSION" -eq "$OLD_VERSION" ]; then
-            echo "MeansTvConfig.json changed in this push, but version stayed $NEW_VERSION; skipping publish."
-            echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [ "$NEW_VERSION" -le "$OLD_VERSION" ]; then
-            echo "Version moved backward or stayed invalid: old=$OLD_VERSION new=$NEW_VERSION"
-            exit 1
-          fi
-
-          echo "Detected release version bump: $OLD_VERSION -> $NEW_VERSION."
-          echo "should_publish=true" >> "$GITHUB_OUTPUT"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
-
   publish:
-    needs: detect-version-bump
-    if: ${{ needs.detect-version-bump.outputs.should_publish == 'true' }}
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -133,12 +59,36 @@ jobs:
       - name: Test
         run: bun run test
 
+      - name: Resolve release version
+        id: version
+        run: |
+          set -euo pipefail
+
+          REPO_VERSION="$(jq -r '.version' MeansTvConfig.json)"
+          PUBLISHED_VERSION="$(curl -fsS "$PAGES_BASE_URL/MeansTvConfig.json" | jq -r '.version // 0' || echo 0)"
+          case "$REPO_VERSION$PUBLISHED_VERSION" in *[!0-9]*) echo "Versions must be integers: repo=$REPO_VERSION published=$PUBLISHED_VERSION"; exit 1;; esac
+
+          if [ "$REPO_VERSION" -gt "$PUBLISHED_VERSION" ]; then
+            VERSION="$REPO_VERSION"
+            BUMPED=false
+          else
+            VERSION=$((PUBLISHED_VERSION + 1))
+            BUMPED=true
+            jq --argjson v "$VERSION" '.version = $v' MeansTvConfig.json > /tmp/config.json
+            mv /tmp/config.json MeansTvConfig.json
+          fi
+
+          echo "Releasing v$VERSION (repo=$REPO_VERSION, published=$PUBLISHED_VERSION, bumped=$BUMPED)."
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "bumped=$BUMPED" >> "$GITHUB_OUTPUT"
+
       - name: Build
         run: bun run build
 
       - name: Create release tag
         env:
-          RELEASE_TAG: ${{ needs.detect-version-bump.outputs.tag }}
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
           git fetch --tags origin
@@ -154,7 +104,7 @@ jobs:
       - name: Sign plugin artifacts
         env:
           SIGNING_KEY: ${{ secrets.MEANSTV_SIGNING_KEY || secrets.GRAYJAY_SIGNING_KEY }}
-          RELEASE_VERSION: ${{ needs.detect-version-bump.outputs.version }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -222,10 +172,23 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ needs.detect-version-bump.outputs.tag }}
+          tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
           files: |
             dist/MeansTvConfig.json
             dist/MeansTvScript.js
             dist/MeansTvLogo.jpg
+
+      - name: Commit version bump back to main
+        if: ${{ steps.version.outputs.bumped == 'true' }}
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-release-bot"
+          git config user.email "github-release-bot@users.noreply.github.com"
+          git add MeansTvConfig.json
+          git commit -m "release: bump plugin version to $RELEASE_VERSION"
+          git pull --rebase origin main
+          git push origin HEAD:main

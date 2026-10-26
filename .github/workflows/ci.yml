@@ -1,10 +1,8 @@
-# GitHub mirror CI — validates mirrored main and GitHub-side PRs.
+# Validates GitHub-side PRs; pushes to main are validated by the publish workflow.
 
 name: GrayJay Plugin CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
