@@ -268,7 +268,7 @@ src["getContentDetails"] = function (url: string): PlatformVideoDetails | null {
   const canonicalUrl = urlProgram(content.permalink);
   if (stream.playbackStats) playbackStatsByUrl.set(canonicalUrl, stream.playbackStats);
   else playbackStatsByUrl.delete(canonicalUrl);
-  return videoDetailsFromContent(content, stream.hlsUrl, () => recommendations(canonicalUrl));
+  return videoDetailsFromContent(content, stream.hlsUrl, () => recommendations(canonicalUrl), stream.subtitles);
 };
 
 src["getComments"] = function (url: string): CommentPager<Record<string, string>> {

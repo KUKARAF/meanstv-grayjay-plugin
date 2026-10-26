@@ -9,6 +9,7 @@ import { parseDuration } from "../utilities/duration";
 import { withDocument } from "../utilities/dom";
 import { isRecord } from "../utilities/guards";
 import { absoluteImageUrl } from "../utilities/url";
+import { parseSubtitleTracks } from "./subtitles";
 import type { Content, ContentAuthor, ContentChild, PlaybackStats, UscreenContentType } from "../types";
 
 function str(value: unknown): string {
@@ -94,6 +95,7 @@ export function isPreviewStreamHtml(html: string): boolean {
 export interface StreamDetails {
   hlsUrl: string | null;
   playbackStats: PlaybackStats | null;
+  subtitles: ISubtitleSource[];
 }
 
 function parsePlaybackStats(raw: string): PlaybackStats | null {
@@ -127,7 +129,13 @@ export function parseStreamDetails(html: string): StreamDetails {
     html.match(/https?:\/\/[^"'<>\s]+\.m3u8[^"'<>\s]*/)?.[0]?.replaceAll("&amp;", "&") ||
     null;
   const statsRaw = fromDom.statsRaw || html.match(/data-program-video-stats-value="([^"]+)"/)?.[1] || "";
-  return { hlsUrl, playbackStats: statsRaw ? parsePlaybackStats(statsRaw) : null };
+  let subtitles: ISubtitleSource[] = [];
+  try {
+    subtitles = parseSubtitleTracks(html);
+  } catch {
+    // Subtitles are optional; never let them break playback.
+  }
+  return { hlsUrl, playbackStats: statsRaw ? parsePlaybackStats(statsRaw) : null, subtitles };
 }
 
 /** Compatibility accessor for callers that only need the signed HLS URL. */

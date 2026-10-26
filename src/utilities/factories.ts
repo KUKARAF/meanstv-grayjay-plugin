@@ -166,6 +166,7 @@ export function videoDetailsFromContent(
   content: Content,
   hlsUrl: string,
   recommendations?: () => ContentPager,
+  subtitles: ISubtitleSource[] = [],
 ): PlatformVideoDetails {
   const url = urlProgram(content.permalink);
   return new PlatformVideoDetails({
@@ -188,6 +189,7 @@ export function videoDetailsFromContent(
       }),
     ]),
     rating: new RatingLikes(0),
+    ...(subtitles.length ? { subtitles } : {}),
     ...(recommendations ? { getContentRecommendations: recommendations } : {}),
   });
 }

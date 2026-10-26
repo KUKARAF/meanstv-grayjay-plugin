@@ -30,6 +30,7 @@ const catalogInitialHtml = await readFixture("catalog-initial.html");
 const catalogEmptyHtml = await readFixture("catalog-empty.html");
 const videoFixture = await readFixture("content-video.json");
 const streamHtml = await readFixture("program-content-stream.html");
+const subtitlesStreamHtml = await readFixture("program-content-stream-subtitles.html");
 const sessionsFixture = await readFixture("sessions.json");
 const loggedInSessionFixture = JSON.stringify({
   country: "US",
@@ -260,6 +261,27 @@ describe("Source wiring", () => {
 
     setHttpRoute(URLS.SESSIONS, loggedInSessionFixture);
     expect(() => runtime.getContentDetails("https://means.tv/programs/mmn-daily_031326")).toThrow(UnavailableException);
+  });
+
+  test("exposes parsed subtitle tracks on content details only when the stream response has them", () => {
+    const runtime = sourceRuntime();
+    const url = "https://means.tv/programs/mmn-daily_031326";
+    setAuthorProfileRoute("sam-sacks");
+    setHttpRoute(urlContents("mmn-daily_031326"), videoFixture);
+
+    setHttpRoute(urlProgramContent("mmn-daily_031326"), subtitlesStreamHtml);
+    const withSubtitles = requireRecord(runtime.getContentDetails(url));
+    expect(requireArray(withSubtitles.subtitles)).toEqual([
+      {
+        name: "English (auto-generated)",
+        url: `https://alpha.uscreencdn.com/sub/997290/${"A".repeat(16)}${"B".repeat(16)}${"0".repeat(16)}${"z".repeat(16)}.vtt`,
+        format: "text/vtt",
+      },
+    ]);
+
+    setHttpRoute(urlProgramContent("mmn-daily_031326"), streamHtml);
+    const withoutSubtitles = requireRecord(runtime.getContentDetails(url));
+    expect(withoutSubtitles.subtitles === undefined || requireArray(withoutSubtitles.subtitles).length === 0).toBe(true);
   });
 
   test("provides terminal global and related-video pagers without eagerly loading related content", () => {

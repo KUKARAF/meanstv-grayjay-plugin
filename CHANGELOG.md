@@ -1,5 +1,9 @@
 # Changelog
 
+## v8
+
+* Add subtitle support: WebVTT tracks from program content are exposed to the player.
+
 ## v3 - 2026-07-21
 
 <!-- Release notes generated using configuration in .github/release.yml at 0d8f174b75d084565db7b4377c8a054fb3e12c37 -->
