@@ -270,14 +270,23 @@ describe("Source wiring", () => {
     setHttpRoute(urlContents("mmn-daily_031326"), videoFixture);
 
     setHttpRoute(urlProgramContent("mmn-daily_031326"), subtitlesStreamHtml);
+    const subtitleUrl = `https://alpha.uscreencdn.com/sub/997290/${"A".repeat(16)}${"B".repeat(16)}${"0".repeat(16)}${"z".repeat(16)}.vtt`;
+    setHttpRoute(
+      subtitleUrl,
+      "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000\n\n00:00:00.000 --> 00:00:02.000\ncue\nWEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:900000\n\n00:00:00.000 --> 00:00:02.000\ncue\n",
+    );
     const withSubtitles = requireRecord(runtime.getContentDetails(url));
-    expect(requireArray(withSubtitles.subtitles)).toEqual([
+    const subtitles = requireArray(withSubtitles.subtitles);
+    expect(subtitles).toEqual([
       {
         name: "English (auto-generated)",
-        url: `https://alpha.uscreencdn.com/sub/997290/${"A".repeat(16)}${"B".repeat(16)}${"0".repeat(16)}${"z".repeat(16)}.vtt`,
+        url: subtitleUrl,
         format: "text/vtt",
+        getSubtitles: expect.any(Function),
       },
     ]);
+    const getSubtitles = (subtitles[0] as { getSubtitles: () => string }).getSubtitles;
+    expect(getSubtitles().match(/WEBVTT/g)?.length).toBe(1);
 
     setHttpRoute(urlProgramContent("mmn-daily_031326"), streamHtml);
     const withoutSubtitles = requireRecord(runtime.getContentDetails(url));

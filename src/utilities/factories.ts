@@ -2,6 +2,8 @@
 
 import { DOMAIN, PLATFORM, USER_AGENT, urlAuthor, urlProgram } from "../constants";
 import { stripHtml } from "./dom";
+import { callUrl } from "../http";
+import { sanitizeVtt } from "./vtt";
 import type {
   AuthorChannel,
   CatalogItem,
@@ -9,6 +11,25 @@ import type {
   Content,
   UserPlaylistDetails,
 } from "../types";
+
+/**
+ * Fetches and cleans a subtitle track's body lazily (only when the player
+ * actually enables captions) instead of handing the raw URL to the player,
+ * which would surface means.tv's leaked HLS segment headers as cue text.
+ * Falls back to an empty track rather than breaking playback.
+ */
+function sanitizedSubtitle(source: ISubtitleSource): ISubtitleSource {
+  return {
+    ...source,
+    getSubtitles: () => {
+      try {
+        return sanitizeVtt(callUrl(source.url, false));
+      } catch {
+        return "";
+      }
+    },
+  };
+}
 
 function pid(id: string | number): PlatformID {
   return new PlatformID(PLATFORM, String(id), plugin.config.id);
@@ -189,7 +210,7 @@ export function videoDetailsFromContent(
       }),
     ]),
     rating: new RatingLikes(0),
-    ...(subtitles.length ? { subtitles } : {}),
+    ...(subtitles.length ? { subtitles: subtitles.map(sanitizedSubtitle) } : {}),
     ...(recommendations ? { getContentRecommendations: recommendations } : {}),
   });
 }
